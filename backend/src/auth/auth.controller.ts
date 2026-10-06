@@ -21,4 +21,9 @@ export class AuthController {
   githubCallback(@Query('code') code: string) {
     return this.authService.githubCallback(code);
   }
+
+  @Get('github/repositories')
+  getGithubRepositories(@Query('githubId') githubId: string) {
+    return this.authService.getGithubRepositories(githubId);
+  }
 }

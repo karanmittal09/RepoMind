@@ -68,6 +68,37 @@ export class AuthService {
       },
     });
 
-    return user;
+    return {
+      id: user.id,
+      githubId: user.githubId,
+      githubLogin: user.githubLogin,
+      email: user.email,
+      avatarUrl: user.avatarUrl,
+      plan: user.plan,
+    };
+  }
+
+  async getGithubRepositories(githubId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        githubId,
+      },
+    });
+
+    if (!user || !user.githubToken) {
+      throw new Error('GitHub user or token not found');
+    }
+
+  const response = await fetch(
+    'https://api.github.com/user/repos?per_page=100',
+      {
+        headers: {
+          Authorization: `Bearer ${user.githubToken}`,
+          Accept: 'application/vnd.github+json',
+        },
+      },
+    );
+
+    return response.json();
   }
 }
