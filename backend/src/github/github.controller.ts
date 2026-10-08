@@ -18,4 +18,21 @@ export class GithubController {
       'main',
     );
   }
+
+  @Get('repositories/:owner/:repo/file')
+ getFileContent(
+  @Param('owner') owner: string,
+  @Param('repo') repo: string,
+  @Query('githubId') githubId: string,
+  @Query('path') path: string,
+ ) {
+  return this.githubService.getFileContent(
+    githubId,
+    owner,
+    repo,
+    path,
+  );
+ }
+
+
 }
