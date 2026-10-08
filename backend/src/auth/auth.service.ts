@@ -25,12 +25,21 @@ export class AuthService {
 
     const tokenData = await tokenResponse.json();
 
+    console.log({
+  tokenType: tokenData.token_type,
+  scope: tokenData.scope,
+  hasToken: !!tokenData.access_token,
+  error: tokenData.error,
+});
+
     const userResponse = await fetch('https://api.github.com/user', {
       headers: {
         Authorization: `Bearer ${tokenData.access_token}`,
         Accept: 'application/vnd.github+json',
       },
     });
+
+    
 
     const githubUser = await userResponse.json();
 
@@ -98,6 +107,8 @@ export class AuthService {
         },
       },
     );
+
+    console.log('GitHub repos status:', response.status);
 
     return response.json();
   }

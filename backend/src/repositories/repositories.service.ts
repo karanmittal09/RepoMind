@@ -9,7 +9,29 @@ export class RepositoriesService {
     return this.prisma.repository.findMany();
   }
 
-  async create(data: {userId: string, githubRepoId: string, fullName: string, branch?: string}){
-    return this.prisma.repository.create({ data, });
+  async create(data: {
+    githubId: string;
+    githubRepoId: string;
+    fullName: string;
+    branch?: string;
+  }) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        githubId: data.githubId,
+      },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    return this.prisma.repository.create({
+      data: {
+        userId: user.id,
+        githubRepoId: data.githubRepoId,
+        fullName: data.fullName,
+        branch: data.branch ?? 'main',
+      },
+    });
   }
 }
