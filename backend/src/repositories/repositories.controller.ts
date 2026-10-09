@@ -8,7 +8,7 @@ export class RepositoriesController {
 
   @Get()
   findAll(){
-    return this.repositoriesService.findALL();
+    return this.repositoriesService.findAll();
   }
 
   @Post() 
