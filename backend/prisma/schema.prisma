@@ -48,7 +48,28 @@ model Repository{
   createdAt    DateTime         @default(now())
 
   user User @relation(fields: [userId], references: [id])
+  codeChunks CodeChunk[]
 
   @@index([userId])
   @@unique([userId, githubRepoId])
+
+
+}
+
+model CodeChunk {
+  id           String   @id @default(uuid())
+  repositoryId String
+  filePath     String
+  language     String?
+  content      String   @db.Text
+  startLine    Int
+  endLine      Int
+  chunkIndex   Int
+  tokenCount   Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  repository Repository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  @@unique([repositoryId, filePath, chunkIndex])
+  @@index([repositoryId])
 }
