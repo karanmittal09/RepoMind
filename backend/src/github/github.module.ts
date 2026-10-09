@@ -5,6 +5,7 @@ import { PrismaService } from 'src/prisma.service';
 
 @Module({
   providers: [GithubService, PrismaService],
-  controllers: [GithubController]
+  controllers: [GithubController],
+  exports: [GithubService]
 })
 export class GithubModule {}

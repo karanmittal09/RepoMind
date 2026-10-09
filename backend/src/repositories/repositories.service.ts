@@ -1,5 +1,5 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { PrismaService } from '../prisma.service';
 
@@ -13,6 +13,26 @@ export class RepositoriesService {
 
   async findAll() {
     return this.prisma.repository.findMany();
+  }
+
+  async enqueueExisting(repositoryId: string) {
+    const repository = await this.prisma.repository.findUnique({
+      where: { id: repositoryId },
+    });
+
+    if (!repository) {
+      throw new NotFoundException('Repository not found');
+    }
+
+    const job = await this.repositoryQueue.add('ingest-repository', {
+      repositoryId: repository.id,
+    });
+
+    return {
+      message: 'Repository ingestion job queued',
+      repositoryId: repository.id,
+      jobId: job.id,
+    };
   }
 
   async create(data: {

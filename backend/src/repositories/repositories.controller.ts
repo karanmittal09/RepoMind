@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post } from '@nestjs/common';
 import { RepositoriesService } from './repositories.service';
 import { CreateRepositoryDto } from './create-repository.dto';
 
@@ -14,5 +14,10 @@ export class RepositoriesController {
   @Post() 
   create(@Body() data: CreateRepositoryDto){
     return this.repositoriesService.create(data);
+  }
+
+  @Post(':id/ingest')
+  enqueueExisting(@Param('id') id: string) {
+    return this.repositoriesService.enqueueExisting(id);
   }
 }
