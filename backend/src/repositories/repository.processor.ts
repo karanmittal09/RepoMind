@@ -1,7 +1,10 @@
+
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { PrismaService } from '../prisma.service';
 import { GithubService } from '../github/github.service';
+import { EmbeddingsService } from '../embeddings/embeddings.service';
+import { VectorService } from '../vector/vector.service';
 import { chunkCode } from './code-chunker';
 
 @Processor('repository-ingestion')
@@ -9,6 +12,8 @@ export class RepositoryProcessor extends WorkerHost {
   constructor(
     private prisma: PrismaService,
     private githubService: GithubService,
+    private embeddingsService: EmbeddingsService,
+    private vectorService: VectorService,
   ) {
     super();
   }
@@ -20,145 +25,190 @@ export class RepositoryProcessor extends WorkerHost {
 
     const repositoryId = job.data.repositoryId;
 
-    const repository = await this.prisma.repository.findUnique({
-      where: { id: repositoryId },
-      include: { user: true },
-    });
+    try {
+      const repository = await this.prisma.repository.findUnique({
+        where: { id: repositoryId },
+        include: { user: true },
+      });
 
-    if (!repository) {
-      throw new Error('Repository not found');
-    }
+      if (!repository) {
+        throw new Error('Repository not found');
+      }
 
-    await this.prisma.repository.update({
-      where: { id: repositoryId },
-      data: { status: 'PROCESSING' },
-    });
+      await this.prisma.repository.update({
+        where: { id: repositoryId },
+        data: { status: 'PROCESSING' },
+      });
 
-    const [owner, repoName] = repository.fullName.split('/');
+      const [owner, repoName] = repository.fullName.split('/');
 
-    if (!owner || !repoName) {
-      throw new Error('Invalid repository name');
-    }
+      if (!owner || !repoName) {
+        throw new Error('Invalid repository name');
+      }
 
-    const treeData = await this.githubService.getRepositoryFiles(
-      repository.user.githubId,
-      owner,
-      repoName,
-      repository.branch,
-    );
-
-    if (!Array.isArray(treeData.tree)) {
-      throw new Error(
-        `Failed to fetch repository files: ${
-          treeData.message ?? 'Invalid response'
-        }`,
-      );
-    }
-
-    const fileCount = treeData.tree.filter(
-      (item: { type: string }) => item.type === 'blob',
-    ).length;
-
-    const ignoredDirectories = [
-      'node_modules',
-      '.git',
-      'dist',
-      'build',
-      'coverage',
-      '.next',
-    ];
-
-    const textFilePattern =
-      /\.(ts|tsx|js|jsx|mjs|cjs|json|md|mdx|html|css|scss|py|java|go|rs|php|sql|prisma|xml|yaml|yml)$/i;
-
-    const filesToProcess = treeData.tree.filter(
-      (item: { type: string; path: string }) => {
-        const parts = item.path.split('/');
-        const fileName = parts[parts.length - 1];
-
-        return (
-          item.type === 'blob' &&
-          textFilePattern.test(item.path) &&
-          !parts.some((part) => ignoredDirectories.includes(part)) &&
-          !/^(package-lock\.json|yarn\.lock|pnpm-lock\.yaml)$/i.test(
-            fileName,
-          ) &&
-          !/^\.env(?:\.|$)/i.test(fileName)
-        );
-      },
-    );
-
-    const allChunks: {
-      repositoryId: string;
-      filePath: string;
-      language: string | null;
-      content: string;
-      startLine: number;
-      endLine: number;
-      chunkIndex: number;
-      tokenCount: number;
-    }[] = [];
-
-    let fetchedCount = 0;
-
-    for (const file of filesToProcess) {
-      const result = await this.githubService.getFileContent(
+      const treeData = await this.githubService.getRepositoryFiles(
         repository.user.githubId,
         owner,
         repoName,
-        file.path,
+        repository.branch,
       );
 
-      if (typeof result.content !== 'string') {
-        console.log('Skipping file:', file.path);
-        continue;
+      if (!Array.isArray(treeData.tree)) {
+        throw new Error(
+          `Failed to fetch repository files: ${
+            treeData.message ?? 'Invalid response'
+          }`,
+        );
       }
 
-      fetchedCount++;
+      const fileCount = treeData.tree.filter(
+        (item: { type: string }) => item.type === 'blob',
+      ).length;
 
-      const chunks = chunkCode(result.content);
-      const extension = file.path.split('.').pop()?.toLowerCase() ?? null;
+      const ignoredDirectories = [
+        'node_modules',
+        '.git',
+        'dist',
+        'build',
+        'coverage',
+        '.next',
+      ];
 
-      for (const chunk of chunks) {
-        allChunks.push({
-          repositoryId,
-          filePath: file.path,
-          language: extension,
-          content: chunk.content,
-          startLine: chunk.startLine,
-          endLine: chunk.endLine,
-          chunkIndex: chunk.chunkIndex,
-          tokenCount: 0,
-        });
-      }
-    }
+      const textFilePattern =
+        /\.(ts|tsx|js|jsx|mjs|cjs|json|md|mdx|html|css|scss|py|java|go|rs|php|sql|prisma|xml|yaml|yml)$/i;
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.codeChunk.deleteMany({
-        where: { repositoryId },
-      });
+      const filesToProcess = treeData.tree.filter(
+        (item: { type: string; path: string }) => {
+          const parts = item.path.split('/');
+          const fileName = parts[parts.length - 1];
 
-      if (allChunks.length > 0) {
-        await tx.codeChunk.createMany({
-          data: allChunks,
-        });
-      }
-
-      await tx.repository.update({
-        where: { id: repositoryId },
-        data: {
-          fileCount,
-          chunkCount: allChunks.length,
-          lastSyncedAt: new Date(),
+          return (
+            item.type === 'blob' &&
+            textFilePattern.test(item.path) &&
+            !parts.some((part) => ignoredDirectories.includes(part)) &&
+            !/^(package-lock\.json|yarn\.lock|pnpm-lock\.yaml)$/i.test(
+              fileName,
+            ) &&
+            !/^\.env(?:\.|$)/i.test(fileName)
+          );
         },
-      });
-    });
+      );
 
-    console.log('Repository ID:', repositoryId);
-    console.log('Files discovered:', fileCount);
-    console.log('Text files selected:', filesToProcess.length);
-    console.log('File contents fetched:', fetchedCount);
-    console.log('Chunks created:', allChunks.length);
-    console.log('Chunks saved to PostgreSQL:', allChunks.length);
+      const allChunks: {
+        repositoryId: string;
+        filePath: string;
+        language: string | null;
+        content: string;
+        startLine: number;
+        endLine: number;
+        chunkIndex: number;
+        tokenCount: number;
+      }[] = [];
+
+      let fetchedCount = 0;
+
+      for (const file of filesToProcess) {
+        const result = await this.githubService.getFileContent(
+          repository.user.githubId,
+          owner,
+          repoName,
+          file.path,
+        );
+
+        if (typeof result.content !== 'string') {
+          console.log('Skipping file:', file.path);
+          continue;
+        }
+
+        fetchedCount++;
+
+        const chunks = chunkCode(result.content);
+        const extension =
+          file.path.split('.').pop()?.toLowerCase() ?? null;
+
+        for (const chunk of chunks) {
+          allChunks.push({
+            repositoryId,
+            filePath: file.path,
+            language: extension,
+            content: chunk.content,
+            startLine: chunk.startLine,
+            endLine: chunk.endLine,
+            chunkIndex: chunk.chunkIndex,
+            tokenCount: 0,
+          });
+        }
+      }
+
+      await this.prisma.$transaction(async (tx) => {
+        await tx.codeChunk.deleteMany({
+          where: { repositoryId },
+        });
+
+        if (allChunks.length > 0) {
+          await tx.codeChunk.createMany({
+            data: allChunks,
+          });
+        }
+
+        await tx.repository.update({
+          where: { id: repositoryId },
+          data: {
+            fileCount,
+            chunkCount: allChunks.length,
+            lastSyncedAt: new Date(),
+          },
+        });
+      });
+
+      console.log('Repository ID:', repositoryId);
+      console.log('Files discovered:', fileCount);
+      console.log('Text files selected:', filesToProcess.length);
+      console.log('File contents fetched:', fetchedCount);
+      console.log('Chunks created:', allChunks.length);
+      console.log('Chunks saved to PostgreSQL:', allChunks.length);
+
+      let indexedCount = 0;
+
+      for (const chunk of allChunks) {
+        const values =
+          await this.embeddingsService.generateEmbedding(chunk.content);
+
+        await this.vectorService.upsertVector(
+          `${chunk.filePath}:${chunk.chunkIndex}`,
+          values,
+          {
+            repositoryId,
+            filePath: chunk.filePath,
+            language: chunk.language ?? 'unknown',
+            startLine: chunk.startLine,
+            endLine: chunk.endLine,
+          },
+        );
+
+        indexedCount++;
+
+        if (indexedCount % 10 === 0) {
+          console.log('Vectors indexed:', indexedCount);
+        }
+      }
+
+      await this.prisma.repository.update({
+        where: { id: repositoryId },
+        data: { status: 'READY' },
+      });
+
+      console.log('Vectors saved to Pinecone:', indexedCount);
+      console.log('Repository ingestion completed:', repositoryId);
+    } catch (error) {
+      console.error('Repository ingestion failed:', error);
+
+      await this.prisma.repository.update({
+        where: { id: repositoryId },
+        data: { status: 'FAILED' },
+      });
+
+      throw error;
+    }
   }
 }

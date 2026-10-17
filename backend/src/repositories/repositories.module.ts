@@ -5,6 +5,8 @@ import { PrismaService } from 'src/prisma.service';
 import { BullModule } from '@nestjs/bullmq';
 import { RepositoryProcessor } from './repository.processor';
 import { GithubModule } from 'src/github/github.module';
+import { EmbeddingsModule } from 'src/embeddings/embeddings.module';
+import { VectorModule } from 'src/vector/vector.module';
 
 @Module({
   imports: [
@@ -12,6 +14,8 @@ import { GithubModule } from 'src/github/github.module';
       name: 'repository-ingestion',
     }),
     GithubModule,
+    EmbeddingsModule,
+    VectorModule,
   ],
   providers: [RepositoriesService, PrismaService, RepositoryProcessor],
   controllers: [RepositoriesController]
