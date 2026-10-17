@@ -10,19 +10,16 @@ import { SearchService } from './search.service';
 export class SearchController {
   constructor(private searchService: SearchService) {}
 
+  
   @Post()
   async search(
-    @Body()
-    body: {
+    @Body() body: {
       repositoryId: string;
       question: string;
       topK?: number;
     },
   ) {
-    if (
-      !body.repositoryId?.trim() ||
-      !body.question?.trim()
-    ) {
+    if (!body.repositoryId?.trim() || !body.question?.trim()) {
       throw new BadRequestException(
         'repositoryId and question are required',
       );
@@ -36,16 +33,11 @@ export class SearchController {
       );
     }
 
-    const results = await this.searchService.searchCode(
+    return this.searchService.searchCode(
       body.repositoryId,
       body.question,
       topK,
     );
-
-    return {
-      question: body.question,
-      resultCount: results.length,
-      results,
-    };
   }
+
 }

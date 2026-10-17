@@ -12,6 +12,8 @@ import { VectorModule } from './vector/vector.module';
 import { EmbeddingsService } from './embeddings/embeddings.service';
 import { EmbeddingsModule } from './embeddings/embeddings.module';
 import { SearchModule } from './search/search.module';
+import { LlmModule } from './llm/llm.module';
+
 
 
 @Module({
@@ -30,6 +32,7 @@ import { SearchModule } from './search/search.module';
     VectorModule,
     EmbeddingsModule,
     SearchModule,
+    LlmModule
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService, EmbeddingsService],
