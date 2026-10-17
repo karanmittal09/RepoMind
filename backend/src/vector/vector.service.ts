@@ -58,4 +58,41 @@ export class VectorService {
       ],
     });
   }
+
+  
+  async searchVectors(
+  repositoryId: string,
+  values: number[],
+  topK = 5,
+  ) {
+  if (values.length !== 768) {
+    throw new Error(
+      `Expected 768 dimensions, received ${values.length}`,
+    );
+  }
+
+  const index = this.pinecone.index({
+    name: this.indexName,
+    namespace: repositoryId,
+  });
+
+  const result = await index.query({
+    vector: values,
+    topK,
+    includeMetadata: true,
+  });
+
+  return result.matches?.map((match) => ({
+    id: match.id,
+    score: match.score,
+    filePath: match.metadata?.filePath,
+    language: match.metadata?.language,
+    startLine: match.metadata?.startLine,
+    endLine: match.metadata?.endLine,
+    chunkIndex: Number(
+      match.id.slice(match.id.lastIndexOf(':') + 1),
+    ),
+   })) ?? [];
+  }
+
 }

@@ -11,6 +11,7 @@ import { BullModule } from '@nestjs/bullmq';
 import { VectorModule } from './vector/vector.module';
 import { EmbeddingsService } from './embeddings/embeddings.service';
 import { EmbeddingsModule } from './embeddings/embeddings.module';
+import { SearchModule } from './search/search.module';
 
 
 @Module({
@@ -28,6 +29,7 @@ import { EmbeddingsModule } from './embeddings/embeddings.module';
     GithubModule,
     VectorModule,
     EmbeddingsModule,
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService, EmbeddingsService],
