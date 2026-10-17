@@ -8,6 +8,9 @@ import { RepositoriesModule } from './repositories/repositories.module';
 import { AuthModule } from './auth/auth.module';
 import { GithubModule } from './github/github.module';
 import { BullModule } from '@nestjs/bullmq';
+import { VectorModule } from './vector/vector.module';
+import { EmbeddingsService } from './embeddings/embeddings.service';
+import { EmbeddingsModule } from './embeddings/embeddings.module';
 
 
 @Module({
@@ -23,8 +26,10 @@ import { BullModule } from '@nestjs/bullmq';
     RepositoriesModule,
     AuthModule,
     GithubModule,
+    VectorModule,
+    EmbeddingsModule,
   ],
   controllers: [AppController],
-  providers: [AppService, PrismaService],
+  providers: [AppService, PrismaService, EmbeddingsService],
 })
 export class AppModule {}
