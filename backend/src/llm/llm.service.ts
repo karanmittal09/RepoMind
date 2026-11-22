@@ -1,4 +1,3 @@
-
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { GoogleGenAI } from '@google/genai';
 
@@ -19,7 +18,7 @@ export class LlmService {
   async generateAnswer(question: string, context: string) {
     try {
       const response = await this.ai.models.generateContent({
-        model: 'gemini-3.8-flash',
+        model: 'gemini-3.5-flash-lite',
         contents: `
 You are RepoMind, an assistant that answers questions about source code.
 
