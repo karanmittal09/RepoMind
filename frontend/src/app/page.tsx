@@ -45,6 +45,8 @@ export default function Home() {
   const handleAsk = async () => {
     if (!question.trim()) return;
 
+    setIsLoading(true);
+
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/search`, {
         method: "POST",
@@ -62,6 +64,8 @@ export default function Home() {
       console.log("AI Response:", data);
     } catch (error) {
       console.error("Search failed:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -307,8 +311,13 @@ export default function Home() {
                       Select repository
                       <ChevronDown size={13} />
                     </button>
-                    <button className="flex items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-medium transition hover:bg-violet-500" onClick={handleAsk}>
-                      Ask question <ArrowUpRight size={14} />
+                    <button
+                      onClick={handleAsk}
+                      disabled={isLoading}
+                      className="flex items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-medium transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {isLoading ? "Thinking..." : "Ask question"}
+                      {!isLoading && <ArrowUpRight size={14} />}
                     </button>
                   </div>
                 </div>
