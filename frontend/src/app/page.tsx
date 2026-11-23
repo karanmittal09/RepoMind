@@ -25,40 +25,76 @@ import {
   MessageSquare,
 } from "lucide-react";
 
+type Repository = {
+  id: string | number;
+  fullName: string;
+  fileCount: number;
+  chunkCount: number;
+  status: string;
+  lastSyncedAt?: string | null;
+};
 
 export default function Home() {
   const [activeNav, setActiveNav] = useState("Overview");
   const [search, setSearch] = useState("");
-  const [repoData, setRepoData] = useState([]);
+  const [repoData, setRepoData] = useState<Repository[]>([]);
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleAsk = async () => {
+    if (!question.trim()) return;
+
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/search`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          question: question,
+          repositoryId: "429ae4d8-2ec3-43eb-a647-e17ac9261f6a",
+        }),
+      });
+
+      const data = await res.json();
+      setAnswer(data.answer);
+      console.log("AI Response:", data);
+    } catch (error) {
+      console.error("Search failed:", error);
+    }
+  };
 
   const repositories = repoData.map((repo) => {
   const [owner, name] = repo.fullName.split("/");
 
-  return {
-    id: repo.id,
-    name,
-    owner,
-    description: "Repository connected to RepoMind",
-    language: "Unknown",
-    color: "#a78bfa",
-    stars: 0,
-    files: repo.fileCount,
-    chunks: repo.chunkCount,
-    status: repo.status === "READY" ? "Indexed" : "Pending",
-    updated: repo.lastSyncedAt
-      ? new Date(repo.lastSyncedAt).toLocaleDateString()
-      : "Not synced",
-  };
-});
+    return {
+      id: repo.id,
+      name,
+      owner,
+      description: "Repository connected to RepoMind",
+      language: "Unknown",
+      color: "#a78bfa",
+      stars: 0,
+      files: repo.fileCount,
+      chunks: repo.chunkCount,
+      status: repo.status === "READY" ? "Indexed" : "Pending",
+      updated: repo.lastSyncedAt
+        ? new Date(repo.lastSyncedAt).toLocaleDateString()
+        : "Not synced",
+    };
+  });
 
-const filteredRepos = repositories.filter((repo) =>
-  `${repo.name} ${repo.owner}`.toLowerCase().includes(search.toLowerCase()),
-);
+  const filteredRepos = repositories.filter((repo) =>
+    `${repo.name} ${repo.owner}`.toLowerCase().includes(search.toLowerCase()),
+  );
 
-    useEffect(() => {
+  useEffect(() => {
     const fetchRepositories = async () => {
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/repositories`);
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/repositories`,
+        );
         const data = await res.json();
         setRepoData(data);
         console.log("Repositories:", data);
@@ -80,7 +116,9 @@ const filteredRepos = repositories.filter((repo) =>
               <Sparkles size={18} />
             </div>
             <div>
-              <p className="text-[15px] font-semibold tracking-tight">RepoMind</p>
+              <p className="text-[15px] font-semibold tracking-tight">
+                RepoMind
+              </p>
               <p className="text-[11px] text-zinc-500">AI code intelligence</p>
             </div>
           </div>
@@ -178,7 +216,9 @@ const filteredRepos = repositories.filter((repo) =>
                 K
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-medium text-zinc-300">Karan</p>
+                <p className="truncate text-xs font-medium text-zinc-300">
+                  Karan
+                </p>
                 <p className="text-[11px] text-zinc-600">Free plan</p>
               </div>
               <MoreHorizontal size={17} className="text-zinc-600" />
@@ -216,13 +256,17 @@ const filteredRepos = repositories.filter((repo) =>
               <div>
                 <div className="mb-3 flex items-center gap-2">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                  <span className="text-xs text-zinc-500">Your workspace is ready</span>
+                  <span className="text-xs text-zinc-500">
+                    Your workspace is ready
+                  </span>
                 </div>
                 <h1 className="text-2xl font-semibold tracking-tight md:text-3xl">
-                  Understand your code, <span className="text-zinc-500">faster.</span>
+                  Understand your code,{" "}
+                  <span className="text-zinc-500">faster.</span>
                 </h1>
                 <p className="mt-2 text-sm text-zinc-500">
-                  Ask questions, explore repositories, and navigate your codebase with AI.
+                  Ask questions, explore repositories, and navigate your
+                  codebase with AI.
                 </p>
               </div>
 
@@ -243,13 +287,17 @@ const filteredRepos = repositories.filter((repo) =>
                   </div>
                   <div>
                     <p className="text-sm font-medium">Ask RepoMind</p>
-                    <p className="text-xs text-zinc-600">AI-powered codebase intelligence</p>
+                    <p className="text-xs text-zinc-600">
+                      AI-powered codebase intelligence
+                    </p>
                   </div>
                 </div>
 
                 <div className="rounded-xl border border-white/[0.09] bg-[#0b0b0e] p-2 transition focus-within:border-violet-500/40">
                   <textarea
-                    placeholder="How does authentication work in this repository?"
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    placeholder="Ask anything about your codebase..."
                     rows={2}
                     className="w-full resize-none bg-transparent px-3 py-2 text-sm text-zinc-200 outline-none placeholder:text-zinc-600"
                   />
@@ -259,11 +307,22 @@ const filteredRepos = repositories.filter((repo) =>
                       Select repository
                       <ChevronDown size={13} />
                     </button>
-                    <button className="flex items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-medium transition hover:bg-violet-500">
+                    <button className="flex items-center justify-center gap-2 rounded-lg bg-violet-600 px-3 py-2 text-xs font-medium transition hover:bg-violet-500" onClick={handleAsk}>
                       Ask question <ArrowUpRight size={14} />
                     </button>
                   </div>
                 </div>
+
+                {answer && (
+                  <div className="mt-6 rounded-xl border border-white/[0.09] bg-[#0e0e11] p-5">
+                    <h3 className="mb-3 text-sm font-semibold text-violet-400">
+                      AI Answer
+                    </h3>
+                    <div className="whitespace-pre-wrap text-sm leading-7 text-zinc-300">
+                      {answer}
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   {[
@@ -287,19 +346,22 @@ const filteredRepos = repositories.filter((repo) =>
               {[
                 {
                   label: "Repositories",
-                  value: "3",
+                  value: repoData.length,
                   icon: GitBranch,
                   note: "Connected",
                 },
                 {
                   label: "Files indexed",
-                  value: "67",
+                  value: repoData.reduce(
+                    (sum, repo) => sum + repo.fileCount,
+                    0,
+                  ),
                   icon: FileCode2,
                   note: "Across repositories",
                 },
                 {
                   label: "Code chunks",
-                  value: "49",
+                  value: repoData.reduce((sum, repo) => sum + repo.chunkCount, 0),
                   icon: Database,
                   note: "Available for search",
                 },
@@ -320,8 +382,12 @@ const filteredRepos = repositories.filter((repo) =>
                       <p className="text-xs text-zinc-500">{stat.label}</p>
                       <Icon size={15} className="text-zinc-600" />
                     </div>
-                    <p className="mt-3 text-2xl font-semibold tracking-tight">{stat.value}</p>
-                    <p className="mt-1 text-[11px] text-zinc-600">{stat.note}</p>
+                    <p className="mt-3 text-2xl font-semibold tracking-tight">
+                      {stat.value}
+                    </p>
+                    <p className="mt-1 text-[11px] text-zinc-600">
+                      {stat.note}
+                    </p>
                   </div>
                 );
               })}
@@ -433,7 +499,9 @@ const filteredRepos = repositories.filter((repo) =>
             {/* Activity */}
             <div className="mt-10">
               <h2 className="text-base font-semibold">Recent activity</h2>
-              <p className="mt-1 text-xs text-zinc-600">Latest workspace events</p>
+              <p className="mt-1 text-xs text-zinc-600">
+                Latest workspace events
+              </p>
 
               <div className="mt-4 rounded-xl border border-white/[0.07] bg-[#0e0e11] p-4 md:p-5">
                 <div className="flex items-start gap-3">
@@ -442,7 +510,8 @@ const filteredRepos = repositories.filter((repo) =>
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-zinc-300">
-                      <span className="font-medium">BG-Removal</span> successfully indexed
+                      <span className="font-medium">BG-Removal</span>{" "}
+                      successfully indexed
                     </p>
                     <p className="mt-1 text-xs text-zinc-600">
                       67 files discovered · 49 code chunks created
@@ -458,7 +527,8 @@ const filteredRepos = repositories.filter((repo) =>
             {/* Footer */}
             <footer className="mt-12 flex flex-col gap-2 border-t border-white/[0.06] pt-5 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-[11px] text-zinc-700">
-                RepoMind <span className="text-zinc-800">·</span> AI code intelligence
+                RepoMind <span className="text-zinc-800">·</span> AI code
+                intelligence
               </p>
               <div className="flex items-center gap-4 text-[11px] text-zinc-700">
                 <span className="flex items-center gap-1.5">
