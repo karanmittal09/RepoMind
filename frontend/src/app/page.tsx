@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Search,
   Plus,
@@ -25,40 +25,50 @@ import {
   MessageSquare,
 } from "lucide-react";
 
-const repositories = [
-  {
-    name: "BG-Removal",
-    owner: "karanmittal09",
-    description: "AI-powered image background removal platform",
-    language: "JavaScript",
-    color: "#eab308",
-    stars: 12,
-    files: 67,
-    chunks: 49,
-    status: "Indexed",
-    updated: "Oct 17",
-  },
-  {
-    name: "skillbridge-angular-full-stack",
-    owner: "brightlinblessy",
-    description: "Full-stack skill development and learning platform",
-    language: "TypeScript",
-    color: "#60a5fa",
-    stars: 8,
-    files: 0,
-    chunks: 0,
-    status: "Pending",
-    updated: "Oct 8",
-  },
-];
 
 export default function Home() {
   const [activeNav, setActiveNav] = useState("Overview");
   const [search, setSearch] = useState("");
+  const [repoData, setRepoData] = useState([]);
 
-  const filteredRepos = repositories.filter((repo) =>
-    `${repo.name} ${repo.owner}`.toLowerCase().includes(search.toLowerCase()),
-  );
+  const repositories = repoData.map((repo) => {
+  const [owner, name] = repo.fullName.split("/");
+
+  return {
+    id: repo.id,
+    name,
+    owner,
+    description: "Repository connected to RepoMind",
+    language: "Unknown",
+    color: "#a78bfa",
+    stars: 0,
+    files: repo.fileCount,
+    chunks: repo.chunkCount,
+    status: repo.status === "READY" ? "Indexed" : "Pending",
+    updated: repo.lastSyncedAt
+      ? new Date(repo.lastSyncedAt).toLocaleDateString()
+      : "Not synced",
+  };
+});
+
+const filteredRepos = repositories.filter((repo) =>
+  `${repo.name} ${repo.owner}`.toLowerCase().includes(search.toLowerCase()),
+);
+
+    useEffect(() => {
+    const fetchRepositories = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/repositories`);
+        const data = await res.json();
+        setRepoData(data);
+        console.log("Repositories:", data);
+      } catch (error) {
+        console.error("Failed to fetch repositories:", error);
+      }
+    };
+
+    fetchRepositories();
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#09090b] text-white">
